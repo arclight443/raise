@@ -13,6 +13,10 @@ struct Args {
     /// command to launch
     #[argh(option, short = 'e')]
     launch: String,
+    
+    /// move window to current workspace
+    #[argh(option, short = 'm')]
+    move_to_current: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -34,6 +38,14 @@ fn focus_window(address: &str) -> std::io::Result<Child> {
         .arg("dispatch")
         .arg("focuswindow")
         .arg(format!("address:{address}"))
+        .spawn()
+}
+
+fn move_to_current(address: &str) -> std::io::Result<Child> {
+    Command::new("hyprctl")
+        .arg("dispatch")
+        .arg("movetoworkspace")
+        .arg(format!("+0,address:{address}"))
         .spawn()
 }
 
@@ -71,19 +83,23 @@ fn main() -> Result<()> {
                 .iter()
                 .filter(|client| client.class == args.class)
                 .collect::<Vec<_>>();
-            
+
             // Are we currently focusing a window of this class?
             if let Ok(Client { address, .. }) = get_current_matching_window(&args.class) {
                 // Focus next window based on first
                 if let Some(index) = candidates.iter().position(|client| client.address == address) {
                     if let Some(next_client) = candidates.iter().cycle().skip(index + 1).next() {
-                        focus_window(&next_client.address)?;
+                        if args.move_to_current { move_to_current(&next_client.address)?; }
+                        else { focus_window(&next_client.address)?; }
                     }
                 }
             } else {
                 // Focus first window, otherwise launch command
                 match candidates.first() {
-                    Some(Client { address, .. }) => focus_window(address)?,
+                    Some(Client { address, .. }) => {
+                        if args.move_to_current { move_to_current(address)?; }
+                        else { focus_window(address)?; }
+                    },
                     _ => launch_command(&args)?,
                 };
             }
