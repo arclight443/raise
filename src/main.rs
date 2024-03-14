@@ -15,7 +15,7 @@ struct Args {
     launch: String,
     
     /// move window to current workspace
-    #[argh(option, short = 'm')]
+    #[argh(switch, short = 'm')]
     move_to_current: bool,
 }
 
@@ -97,10 +97,10 @@ fn main() -> Result<()> {
                 // Focus first window, otherwise launch command
                 match candidates.first() {
                     Some(Client { address, .. }) => {
-                        if args.move_to_current { move_to_current(address)?; }
-                        else { focus_window(address)?; }
+                        if args.move_to_current { move_to_current(address) }
+                        else { focus_window(address) }
                     },
-                    _ => launch_command(&args)?,
+                    None => launch_command(&args),
                 };
             }
         }
