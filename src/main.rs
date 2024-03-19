@@ -13,10 +13,14 @@ struct Args {
     /// command to launch
     #[argh(option, short = 'e')]
     launch: String,
-    
+
     /// move window to current workspace
     #[argh(switch, short = 'm')]
     move_to_current: bool,
+
+    /// move current window to nearest empty workspace
+    #[argh(switch, short = 'n')]
+    move_to_nearest_empty: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -49,6 +53,14 @@ fn move_to_current(address: &str) -> std::io::Result<Child> {
         .spawn()
 }
 
+fn goto_nearest_empty_workspace() -> std::io::Result<Child> {
+    Command::new("hyprctl")
+        .arg("dispatch")
+        .arg("workspace")
+        .arg("empty")
+        .spawn()
+}
+
 fn get_current_matching_window(class: &str) -> Result<Client> {
     let output = Command::new("hyprctl")
         .arg("activewindow")
@@ -67,6 +79,11 @@ fn get_current_matching_window(class: &str) -> Result<Client> {
 fn main() -> Result<()> {
     // Get arguments
     let args: Args = argh::from_env();
+
+    if args.move_to_current && args.move_to_nearest_empty {
+        eprintln!("Error: --move-to-current and --move-to-nearest-empty cannot be passed at the same time.");
+        std::process::exit(1);
+    }
 
     // Launch hyprctl
     let json = Command::new("hyprctl").arg("clients").arg("-j").output();
@@ -89,7 +106,13 @@ fn main() -> Result<()> {
                 // Focus next window based on first
                 if let Some(index) = candidates.iter().position(|client| client.address == address) {
                     if let Some(next_client) = candidates.iter().cycle().skip(index + 1).next() {
-                        if args.move_to_current { move_to_current(&next_client.address)?; }
+                        if args.move_to_nearest_empty {
+                            goto_nearest_empty_workspace();
+                            move_to_current(&next_client.address)?;
+                        }
+                        else if args.move_to_current { 
+                            move_to_current(&next_client.address)?; 
+                        }
                         else { focus_window(&next_client.address)?; }
                     }
                 }
@@ -97,10 +120,22 @@ fn main() -> Result<()> {
                 // Focus first window, otherwise launch command
                 match candidates.first() {
                     Some(Client { address, .. }) => {
-                        if args.move_to_current { move_to_current(address) }
+                        if args.move_to_nearest_empty {
+                            goto_nearest_empty_workspace();
+                            move_to_current(address)
+                        }
+                        else if args.move_to_current { 
+                            move_to_current(address) 
+                        }
                         else { focus_window(address) }
                     },
-                    None => launch_command(&args),
+                    None => { 
+                        if args.move_to_nearest_empty { 
+                            goto_nearest_empty_workspace();
+                            launch_command(&args)
+                        }
+                        else { launch_command(&args) }
+                    },
                 };
             }
         }
