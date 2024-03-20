@@ -6,13 +6,17 @@ it will launch new window.
 
 ```
 $ raise
-Usage: raise -c <class> -e <launch>
+Usage: raise -c <class> -e <launch> [-m] [-n]
 
 Raise window if it exists, otherwise launch new window.
 
 Options:
   -c, --class       class to focus
   -e, --launch      command to launch
+  -m, --move-to-current
+                    move window to current workspace
+  -n, --move-to-nearest-empty
+                    move current window to nearest empty workspace
   --help            display usage information
 ```
 
